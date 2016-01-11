@@ -1,0 +1,127 @@
+// 표준 방식입니다. 이 DLL에 들어 있는 파일은 모두 명령줄에 정의된 _EXPORTS 기호로
+// 컴파일되며, 다른 프로젝트에서는 이 기호를 정의할 수 없습니다.
+// 이렇게 하면 소스 파일에 이 파일이 들어 있는 다른 모든 프로젝트에서는 
+// PSN_WHERE_MAKEDLL_API 함수를 DLL에서 가져오는 것으로 보고, 이 DLL은
+// 이 DLL은 해당 매크로로 정의된 기호가 내보내지는 것으로 봅니다.
+#pragma once
+
+#include "S1_ACF_Manager.h"
+#include "S1_PED_OUTST.h"
+
+using namespace std;
+using namespace cv;
+
+
+class CS1_ACF
+{
+public:
+	CS1_ACF(void);
+	~CS1_ACF(void);
+
+	//initialization
+	bool Initialize(stSettingParameters setParas);
+	bool Finalize(void);
+
+	// run detector
+	vector<stDetection> Run(Mat *matCurrentFrame, int idxFrame, int k, stSettingParameters setParas);
+	vector<stDetection> Run(IplImage *matCurrentFrame, int idxFrame, int k, stSettingParameters setParas);
+	mxArray* ACFRGBConvert(mxArray* mxArray_InputImage, int flag = 2, bool single = 1); // flag 0 = gray, 1 = rgb, 2 = luv, 3 = hsv, 4 = orig
+	void ACFGetScales(void);
+	void ACFComputeImagePyramid(vector<vector<mxArray*>> &pyr_chns, mxArray*& InputImage);
+	void ACFComputeImagePyramidApp(vector<vector<mxArray*>> &pyr_chns);
+	void ACFChannelSmoothETC(vector<vector<mxArray*>> &pyr_chns);
+	void chnsCompute(mxArray* chns[], mxArray* InputImage);
+	mxArray* ACFIMResample(mxArray* data_iR_j, int sz1_1, int sz1_2, float ratio = 1.0);
+	void CorsstalkgradientMag(mxArray* pl[], mxArray* I, int channel=0, int normRad=5, float NormConst=0.005f, int full=0);
+	mxArray* ConvTri(mxArray* I, float r, int s=1, int nomex=0);
+	mxArray* convConst(char* type, mxArray* I, float p, int s);
+	mxArray* ACFgradientHist(mxArray* M,mxArray* O, int binSize, int nOrients, int softBin, int useHog, float clipHog, int full);
+	void ACFAddChn(mxArray **chns, mxArray *AfterResize_Convert, size_t *sz2, int idx);
+	mxArray * ACFImPadMex(mxArray *chn, mxArray* pad,mxArray* padWidth);
+	void ACFComputeImPad(vector<vector<mxArray*>> &pyr_chns);
+	vector<stDetection> ACFComputeDetect(vector<mxArray *> &pyr_chn_concat);
+	void ACFConcat(vector<mxArray *> &pyr_chn_concat,vector<vector<mxArray*>> &pyr_chn);
+	mxArray* ACFAcfDetect(mxArray *chn_concat);
+	void ACFClearMxarray(void);
+	//ACF UTIL
+	void imshow(mxArray* I, const char* windowName);
+	void visualize(cv::Mat *pDibArray, int frameidx, std::vector<stDetection> *bbs);
+	cv::Mat MxArray2CvMat(mxArray* I);
+	mxArray* CvMat2MxArray(cv::Mat* I, int flag = 0);
+	mxArray* CvMat2MxArray(IplImage* pI, int flag = 0);
+	mxArray* MxArrayResize(mxArray *BeforeResize,int crop_height, int crop_width);
+	vector<stDetection> ACFGetRawDetection(void);
+	double EstimateDetectionHeight(S1_Point2D bottomCenter, S1_Point2D topCenter, int k);
+	// non-maximal suppression
+	vector<stDetection> bbNms_maxg(vector<stDetection> st_bbs, double overlap);
+private:
+	vector<stDetection> m_DetectionResultVector[NUM_CAM];
+	vector<stDetection> m_RawDetectionResultVector;
+	vector<stDetection> m_DetectionResultVectorOneCam;
+	stACFParameters m_ACFParameters;
+	vector<double> m_scales;
+	vector<Size2d> m_scaleshw;
+	Size2d m_ImgSize;
+	vector<mxArray*> m_pyr_chn_concat;
+	vector<vector<mxArray*>> m_pyr_chn;
+
+	// calibration related
+	stCalibrationInfo m_stCalibrationInfos[NUM_CAM];
+
+	//ChnsPyramid
+	vector<int> m_isR;
+	vector<int> m_isA;
+	vector<int> m_isJ;
+	vector<int> m_isN;
+	double m_nScales;
+
+	//ACFRgbConvert
+	template<class oT> oT*  rgb2luv_setup( oT z, oT *mr, oT *mg, oT *mb,oT &minu, oT &minv, oT &un, oT &vn );
+	template<class iT, class oT> void rgb2luv( iT *I, oT *J, int n, oT nrm );
+	template<class iT> void rgb2luv_sse( iT *I, float *J, int n, float nrm );
+	template<class iT, class oT> void rgb2hsv( iT *I, oT *J, int n, oT nrm );
+	//template<class iT, class oT> void rgb2gray( iT *I, oT *J, int n, oT nrm );
+	//template<> void rgb2gray( double *I, float *J, int n, float nrm );
+	template<class iT, class oT> void normalize( iT *I, oT *J, int n, oT nrm );
+	template<class iT, class oT> oT* rgbConvert( iT *I, int n, int d, int flag, oT nrm );
+	//ACFIMResample
+	template<class T> void resampleCoef( int ha, int hb, int &n, int *&yas, int *&ybs, T *&wts, int bd[2], int pad=0 );
+	template<class T> void resample( T *A, T *B, int ha, int hb, int wa, int wb, int d, T r );
+	//convConst
+	void convBoxY( float *I, float *O, int h, int r, int s );
+	void convBox( float *I, float *O, int h, int w, int d, int r, int s );
+	void conv11Y( float *I, float *O, int h, int side, int s );
+	void conv11( float *I, float *O, int h, int w, int d, int side, int s );
+	void convTriY( float *I, float *O, int h, int r, int s );
+	void convTri( float *I, float *O, int h, int w, int d, int r, int s );
+	void convTri1Y( float *I, float *O, int h, float p, int s );
+	void convTri1( float *I, float *O, int h, int w, int d, float p, int s );
+	void convMaxY( float *I, float *O, float *T, int h, int r );
+	void convMax( float *I, float *O, int h, int w, int d, int r );
+	//gradientMag
+	void grad1( float *I, float *Gx, float *Gy, int h, int w, int x ); // compute x and y gradients for just one column (uses sse)
+	void grad2( float *I, float *Gx, float *Gy, int h, int w, int d ); // compute x and y gradients at each location (uses sse)
+	float* acosTable(); // build lookup table a[] s.t. a[x*n]~=acos(x) for x in [-1,1]
+	void gradMag( float *I, float *M, float *O, int h, int w, int d, bool full ); // compute gradient magnitude and orientation at each location (uses sse)
+	void gradMagNorm( float *M, float *S, int h, int w, float norm ); // normalize gradient magnitude at each location (uses sse)
+	void gradQuantize( float *O, float *M, int *O0, int *O1, float *M0, float *M1, // helper for gradHist, quantize O and M into O0, O1 and M0, M1 (uses sse)
+	int nb, int n, float norm, int nOrients, bool full, bool interpolate );
+	void gradHist( float *M, float *O, float *H, int h, int w, int bin, int nOrients, int softBin, bool full ); // compute nOrients gradient histograms per bin x bin block of pixels
+	float* hogNormMatrix( float *H, int nOrients, int hb, int wb, int bin ); // HOG helper: compute 2x2 block normalization values (padded by 1 pixel)
+	void hogChannels( float *H, const float *R, const float *N, // HOG helper: compute HOG or FHOG channels
+	int hb, int wb, int nOrients, float clip, int type );
+	void hog( float *M, float *O, float *H, int h, int w, int binSize, // compute HOG features
+	int nOrients, int softBin, bool full, float clip );
+	void fhog( float *M, float *O, float *H, int h, int w, int binSize, // compute FHOG features
+	int nOrients, int softBin, float clip ); // Create [hxwxd] mxArray array, initialize to 0 if c=true
+	/******************************************************************************/
+	mxArray* mxCreateMatrix3( int h, int w, int d, mxClassID id, bool c, void **I );
+	void checkArgs( int nl, mxArray *pl[], int nr, const mxArray *pr[], int nl0, // Check inputs and outputs to mex, retrieve first input I
+	int nl1, int nr0, int nr1, int *h, int *w, int *d, mxClassID id, void **I );
+	void mGrad2( int nl, mxArray *pl[], int nr, const mxArray *pr[] ); // [Gx,Gy] = grad2(I) - see gradient2.m
+	void mGradMag( int nl, mxArray *pl[], int nr, const mxArray *pr[] ); // [M,O] = gradMag( I, channel, full ) - see gradientMag.m
+	void mGradMagNorm( int nl, mxArray *pl[], int nr, const mxArray *pr[] ); // gradMagNorm( M, S, norm ) - operates on M - see gradientMag.m
+	void mGradHist( int nl, mxArray *pl[], int nr, const mxArray *pr[] ); // H=gradHist(M,O,[...]) - see gradientHist.m
+	void gradientMex( int nl, mxArray *pl[], int nr, const mxArray *pr[] );
+	template<class T> void imPad( T *A, T *B, int h, int w, int d, int pt, int pb, int pl, int pr, int flag, T val ); //imPadMex
+};
